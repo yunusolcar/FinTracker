@@ -1,14 +1,17 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.admin import UserAdmin
 from .models import User
 
 
-class UserAdmin(BaseUserAdmin):
-    ordering = ["id"]
-    list_display = ["email", "first_name", "last_name", "is_staff"]
+@admin.register(User)
+class CustomUserAdmin(UserAdmin):
+    list_display = ("email", "username", "is_active", "is_staff", "date_joined")
+    list_filter = ("is_active", "is_staff", "date_joined")
+    search_fields = ("email", "username")
+    ordering = ("-date_joined",)
+
     fieldsets = (
-        (None, {"fields": ("email", "password")}),
-        ("Personal Information", {"fields": ("first_name", "last_name")}),
+        (None, {"fields": ("email", "username", "password")}),
         (
             "Permissions",
             {
@@ -21,17 +24,15 @@ class UserAdmin(BaseUserAdmin):
                 )
             },
         ),
-        ("Important Dates", {"fields": ("last_login",)}),
+        ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
+
     add_fieldsets = (
         (
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "password1", "password2"),
+                "fields": ("email", "username", "password1", "password2"),
             },
         ),
     )
-
-
-admin.site.register(User, UserAdmin)

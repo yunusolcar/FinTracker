@@ -33,7 +33,7 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     "apps.users",
-    "apps.categories",
+    "apps.transactions",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
@@ -59,8 +59,8 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "5/minute",  # Anonim kullanıcılar için dakikada 5 istek
-        "user": "60/minute",  # Giriş yapmış kullanıcılar için dakikada 60 istek
+        "anon": "5/minute",  # 5 requests per minute for anonymous users
+        "user": "60/minute",  # 60 requests per minute for authenticated users
     },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
@@ -72,7 +72,7 @@ AUTH_USER_MODEL = "users.User"
 
 # Simple JWT settings
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,

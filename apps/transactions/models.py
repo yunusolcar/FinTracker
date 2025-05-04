@@ -3,6 +3,8 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
+import re
 
 User = get_user_model()
 
@@ -21,6 +23,16 @@ class Category(models.Model):
         if not all(c.isalnum() or c.isspace() for c in self.name):
             raise ValidationError(
                 _("Category name can only contain letters, numbers and spaces.")
+            )
+
+        # Category name cannot be empty or only spaces
+        if not self.name.strip():
+            raise ValidationError(_("Category name cannot be empty."))
+
+        # Category name length check
+        if len(self.name.strip()) < 2:
+            raise ValidationError(
+                _("Category name must be at least 2 characters long.")
             )
 
     class Meta:
@@ -44,8 +56,10 @@ class Transaction(models.Model):
         max_digits=10,
         decimal_places=2,
         validators=[
-            MinValueValidator(0.01),
-            MaxValueValidator(1000000),  # maximum 1 million
+            MinValueValidator(0.01, message="Amount cannot be less than 0.01"),
+            MaxValueValidator(
+                1000000, message="Amount cannot be greater than 1,000,000"
+            ),
         ],
     )
     description = models.CharField(max_length=255)
@@ -58,9 +72,36 @@ class Transaction(models.Model):
         return f"{self.transaction_type} - {self.amount} - {self.category.name}"
 
     def clean(self):
-        # Check for special characters in the description
-        if not all(c.isprintable() for c in self.description):
-            raise ValidationError(_("Invalid characters in the description."))
+        # Description sanitization
+        if self.description:
+            # Remove HTML tags
+            self.description = re.sub(r"<[^>]+>", "", self.description)
+
+            # Remove potentially dangerous characters
+            self.description = re.sub(r"[<>{}[\]]", "", self.description)
+
+            # Remove multiple spaces
+            self.description = re.sub(r"\s+", " ", self.description).strip()
+
+            # Truncate if too long
+            if len(self.description) > 255:
+                self.description = self.description[:252] + "..."
+
+            # Check for special characters
+            if not all(c.isprintable() for c in self.description):
+                raise ValidationError(_("Invalid characters in the description."))
+
+        # Date cannot be in the future
+        if self.date > timezone.now().date():
+            raise ValidationError(_("Transaction date cannot be in the future."))
+
+        # Check if category belongs to user
+        if self.category.user != self.user:
+            raise ValidationError(_("This category does not belong to you."))
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # Run model validations
+        super().save(*args, **kwargs)
 
 
 class Budget(models.Model):

@@ -2,7 +2,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Sum
-from datetime import datetime
+from datetime import datetime, timedelta
+import calendar
 from django.utils import timezone
 from .models import Category, Transaction, Budget
 from .serializers import CategorySerializer, TransactionSerializer, BudgetSerializer
@@ -13,7 +14,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Show only user's own categories
+        # Only user's own categories
         return Category.objects.filter(user=self.request.user)
 
 
@@ -22,14 +23,16 @@ class TransactionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Show only user's own transactions
+        # Only user's own transactions
         queryset = Transaction.objects.filter(user=self.request.user)
 
-        # Filtering options
+        # Filter options
         category = self.request.query_params.get("category", None)
         transaction_type = self.request.query_params.get("type", None)
         start_date = self.request.query_params.get("start_date", None)
         end_date = self.request.query_params.get("end_date", None)
+        is_auto_generated = self.request.query_params.get("is_auto_generated", None)
+        recurring_type = self.request.query_params.get("recurring_type", None)
 
         if category:
             queryset = queryset.filter(category__name=category)
@@ -39,6 +42,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(date__gte=start_date)
         if end_date:
             queryset = queryset.filter(date__lte=end_date)
+        if recurring_type:
+            queryset = queryset.filter(recurring_type=recurring_type)
 
         # Sorting
         sort_by = self.request.query_params.get("sort_by", "-date")
@@ -87,13 +92,51 @@ class TransactionViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @action(detail=False, methods=["get"])
+    def recurring_summary(self, request):
+        """Summary of recurring transactions"""
+        recurring_transactions = Transaction.objects.filter(
+            user=request.user,
+            is_recurring=True,
+            recurring_type__in=["weekly", "monthly", "yearly"],
+        ).order_by("recurring_type", "date")
+
+        # Count of transactions by recurring type
+        recurring_count = {}
+        for rec_type in ["weekly", "monthly", "yearly"]:
+            count = recurring_transactions.filter(recurring_type=rec_type).count()
+            recurring_count[rec_type] = count
+
+        # Total amount by type (income/expense)
+        income_total = recurring_transactions.filter(
+            transaction_type="income"
+        ).aggregate(total=Sum("amount"))
+
+        expense_total = recurring_transactions.filter(
+            transaction_type="expense"
+        ).aggregate(total=Sum("amount"))
+
+        return Response(
+            {
+                "total_recurring": recurring_transactions.count(),
+                "recurring_by_type": recurring_count,
+                "income_total": income_total["total"] or 0,
+                "expense_total": expense_total["total"] or 0,
+                "monthly_impact": expense_total["total"]
+                or 0 - (income_total["total"] or 0),
+            }
+        )
+
+    def perform_create(self, serializer):
+        transaction = serializer.save(user=self.request.user)
+
 
 class BudgetViewSet(viewsets.ModelViewSet):
     serializer_class = BudgetSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Show only user's own budgets
+        # Only user's own budgets
         return Budget.objects.filter(user=self.request.user)
 
     @action(detail=True, methods=["get"])

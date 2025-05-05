@@ -46,6 +46,13 @@ class Transaction(models.Model):
         ("expense", "Expense"),
     ]
 
+    RECURRING_CHOICES = [
+        ("none", "Non-recurring"),
+        ("weekly", "Weekly"),
+        ("monthly", "Monthly"),
+        ("yearly", "Yearly"),
+    ]
+
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="transactions"
     )
@@ -65,6 +72,13 @@ class Transaction(models.Model):
     description = models.CharField(max_length=255)
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
     date = models.DateField()
+
+    # Fields for recurring transactions (simplified)
+    is_recurring = models.BooleanField(default=False)
+    recurring_type = models.CharField(
+        max_length=10, choices=RECURRING_CHOICES, default="none"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -11,7 +11,7 @@ class CategorySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def create(self, validated_data):
-        # Add user information
+        # Add user information to validated data
         validated_data["user"] = self.context["request"].user
         return super().create(validated_data)
 
@@ -39,10 +39,17 @@ class TransactionSerializer(serializers.ModelSerializer):
             "date",
             "category",
             "category_name",
+            "is_recurring",
+            "recurring_type",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "category_name"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "category_name",
+        ]
 
     def validate_description(self, value):
         if not value:
@@ -100,6 +107,16 @@ class TransactionSerializer(serializers.ModelSerializer):
         ]:
             raise serializers.ValidationError("Invalid transaction type.")
         return value.lower()
+
+    def validate_recurring_type(self, value):
+        # Validate recurring type if present
+        if (
+            value
+            and value != "none"
+            and value not in [choice[0] for choice in Transaction.RECURRING_CHOICES]
+        ):
+            raise serializers.ValidationError("Invalid recurring type.")
+        return value
 
 
 class BudgetSerializer(serializers.ModelSerializer):

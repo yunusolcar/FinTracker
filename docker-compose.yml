@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: fintrack_app
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - sqlite_data:/app/data
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=django-insecure-ezg2(c8#21t=$axa*qn=o^h4^#axk5*4!2qf)ep0^yg6j%izjl
+    command: /app/entrypoint.sh
+
+volumes:
+  sqlite_data:
